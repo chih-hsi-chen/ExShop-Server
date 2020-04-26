@@ -2,8 +2,8 @@ var express = require('express');
 var router = express.Router();
 var passport = require('passport');
 
-const ensureAuthenticated = function(req, res, next) {
-	if(req.isAuthenticated()) {
+const ensureAuthenticated = function (req, res, next) {
+	if (req.isAuthenticated()) {
 		return next();
 	}
 	res.status(200).send({
@@ -14,7 +14,7 @@ const ensureAuthenticated = function(req, res, next) {
 }
 
 /* GET home page. */
-router.get('/home', ensureAuthenticated, function(req, res, next) {
+router.get('/home', ensureAuthenticated, function (req, res, next) {
 
 	res.status(200).send({
 		logstatus: true,
@@ -22,13 +22,7 @@ router.get('/home', ensureAuthenticated, function(req, res, next) {
 		times: req.session.times,
 	});
 });
-router.get('/signup', function(req, res, next) {
-	res.redirect('/signup.html');
-});
-router.get('/signin', function(req, res, next) {
-	res.redirect('/signin.html');
-});
-router.get('/signout', function(req, res, next) {
+router.get('/signout', function (req, res, next) {
 	req.logout();
 	req.session.username = '';
 	req.session.times = 1;
@@ -38,23 +32,41 @@ router.get('/signout', function(req, res, next) {
 
 
 router.post('/signin',
-	passport.authenticate('login', { failureRedirect: '/signin' }),
-	function(req, res) {
-		const {username} = req.body;
+	function (req, res, next) {
+		passport.authenticate('login', function (err, user, info) {
+			if (err) { return next(err); }
+			if (!user) { 
+				return res.status(200).send({
+					message: 'login fail',
+					user: false,
+					info,
+				});
+			}
 
-		if(req.session.username === username) {
-			req.session.times++;
-		} else {
-			req.session.username = username;
-			req.session.times = 1;
-		}
+			req.logIn(user, function (err) {
+				if (err) { return next(err); }
+				const { username } = req.body;
 
-		res.redirect('/home');
+				if (req.session.username === username) {
+					req.session.times++;
+				} else {
+					req.session.username = username;
+					req.session.times = 1;
+				}
+
+				return res.status(200).send({
+					message: 'login success',
+					user: {
+						username: req.user.username,
+					}
+				});
+			});
+		})(req, res, next);
 	}
 );
 router.post('/signup',
 	passport.authenticate('signup', { failureRedirect: '/signup' }),
-	function(req, res) {
+	function (req, res) {
 		req.session.times = 1;
 		req.session.username = req.body.username;
 		res.redirect('/home');
